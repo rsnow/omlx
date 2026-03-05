@@ -81,6 +81,40 @@ class TestExtractThinking:
         assert "Final answer." in content
 
 
+    def test_truncated_think_no_close(self):
+        """<think>reasoning with no closing tag (max_tokens hit)."""
+        thinking, content = extract_thinking("<think>reasoning text here")
+        assert thinking == "reasoning text here"
+        assert content == ""
+
+    def test_truncated_think_just_tag(self):
+        """Just <think> tag with no content or close."""
+        thinking, content = extract_thinking("<think>")
+        assert thinking == ""
+        assert content == ""
+
+    def test_truncated_think_with_preceding_content(self):
+        """Content before <think> with no closing tag."""
+        thinking, content = extract_thinking("some text<think>reasoning")
+        assert thinking == "reasoning"
+        assert content == "some text"
+
+    def test_truncated_think_multiline(self):
+        """Multiline truncated thinking."""
+        thinking, content = extract_thinking(
+            "<think>\nLet me think...\nStep 1: do something\nStep 2: do"
+        )
+        assert "Let me think..." in thinking
+        assert "Step 1" in thinking
+        assert content == ""
+
+    def test_truncated_think_with_newline_after_tag(self):
+        """Truncated with newline after <think> (common pattern)."""
+        thinking, content = extract_thinking("<think>\nThe user asks about 2+2")
+        assert "user asks" in thinking
+        assert content == ""
+
+
 class TestThinkingParser:
     """Tests for streaming ThinkingParser."""
 

@@ -11,6 +11,7 @@ their chain-of-thought reasoning in <think>...</think> tags.
 
 import re
 from typing import Tuple
+import logging
 
 
 # Tags used for thinking blocks
@@ -24,6 +25,8 @@ _THINKING_PATTERN = re.compile(r'<think>(.*?)</think>', re.DOTALL)
 # Handle case where <think> is missing but </think> is present
 # (scheduler prepends <think>\n but the tag may be split)
 _THINKING_TAIL_PATTERN = re.compile(r'^(.*?)</think>', re.DOTALL)
+
+logger = logging.getLogger(__name__)
 
 
 def extract_thinking(text: str) -> Tuple[str, str]:
@@ -67,6 +70,20 @@ def extract_thinking(text: str) -> Tuple[str, str]:
             thinking = match.group(1).strip()
             remaining = text[match.end():].strip()
             return (thinking, remaining)
+
+    # Handle truncated: <think>content with no closing </think> tag
+    # This happens when max_tokens is hit while model is still reasoning
+    if "<think>" in text and "</think>" not in text:
+        idx = text.index("<think>")
+        before = text[:idx].strip()
+        after = text[idx + 7:].strip()
+        logger.warning(
+            "Thinking truncated: <think> block has no closing </think> "
+            "(%d chars of reasoning)", len(after)
+        )
+        if before:
+            return (after, before)
+        return (after, "")
 
     return ("", text)
 

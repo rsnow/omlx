@@ -1499,6 +1499,28 @@ async def create_chat_completion(
 
     # Separate thinking from content
     raw_text = clean_special_tokens(output.text) if output.text else ""
+    # If the prompt ended with <think> (reasoning model), the scheduler prepends
+    # it for streaming but not for non-streaming output. Prepend it here so
+    # extract_thinking can properly separate reasoning from content.
+    if raw_text and "<think>" not in raw_text and "</think>" in raw_text:
+        raw_text = "<think>" + raw_text
+    elif raw_text and "<think>" not in raw_text and "</think>" not in raw_text:
+        # Check if this looks like truncated thinking (no tags at all).
+        # The chat template may have ended with <think>, meaning all output
+        # is reasoning that got truncated before </think>.
+        # We detect this by checking if the engine's tokenizer chat template
+        # produces a prompt ending with <think>.
+        try:
+            if hasattr(engine, 'tokenizer') and engine.tokenizer is not None:
+                test_prompt = engine.tokenizer.apply_chat_template(
+                    [{"role": "user", "content": "test"}],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                if test_prompt.rstrip().endswith("<think>"):
+                    raw_text = "<think>" + raw_text
+        except Exception:
+            pass  # If we can't determine, leave as-is
     thinking_content, regular_content = extract_thinking(raw_text)
 
     # For Harmony (gpt-oss) models, tool_calls are already extracted by the parser
@@ -2327,6 +2349,28 @@ async def create_anthropic_message(
 
     # Separate thinking from content
     raw_text = clean_special_tokens(output.text) if output.text else ""
+    # If the prompt ended with <think> (reasoning model), the scheduler prepends
+    # it for streaming but not for non-streaming output. Prepend it here so
+    # extract_thinking can properly separate reasoning from content.
+    if raw_text and "<think>" not in raw_text and "</think>" in raw_text:
+        raw_text = "<think>" + raw_text
+    elif raw_text and "<think>" not in raw_text and "</think>" not in raw_text:
+        # Check if this looks like truncated thinking (no tags at all).
+        # The chat template may have ended with <think>, meaning all output
+        # is reasoning that got truncated before </think>.
+        # We detect this by checking if the engine's tokenizer chat template
+        # produces a prompt ending with <think>.
+        try:
+            if hasattr(engine, 'tokenizer') and engine.tokenizer is not None:
+                test_prompt = engine.tokenizer.apply_chat_template(
+                    [{"role": "user", "content": "test"}],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+                if test_prompt.rstrip().endswith("<think>"):
+                    raw_text = "<think>" + raw_text
+        except Exception:
+            pass  # If we can't determine, leave as-is
     thinking_content, regular_content = extract_thinking(raw_text)
 
     # For Harmony (gpt-oss) models, tool_calls are already extracted by the parser
